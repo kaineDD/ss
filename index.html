@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoulSpeak - Emotion Detection</title>
+    <style>
+        /* Overall page styling */
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #1c1c1c; /* Dark mode background */
+            color: #ecf0f1; /* Light text color for readability */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+            text-align: center;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* Heading styling */
+        h1 {
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-size: 4em;
+            color: #3498db; /* Light blue */
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4);
+            margin-bottom: 40px;
+            letter-spacing: 5px;
+            word-wrap: break-word;
+        }
+
+        label, input, button {
+            font-size: 1.1em;
+            margin: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            outline: none;
+            width: 70%;
+        }
+
+        input, button {
+            background-color: #34495e;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        input:focus, button:focus {
+            border: 2px solid #16a085;
+        }
+
+        button {
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #16a085;
+        }
+
+        /* Emotion text style */
+        h2 {
+            margin-top: 40px;
+            font-size: 2em;
+            color: #ecf0f1;
+        }
+
+        /* Emotion pulsing ring effect */
+        #emotionOutput {
+            font-size: 3em;
+            color: #ecf0f1;
+            font-weight: bold;
+            text-transform: capitalize;
+            transition: color 0.5s ease, transform 1s ease;
+            display: inline-block;
+            position: relative;
+        }
+
+        .pulseRing {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            animation: pulse 2s infinite;
+        }
+
+        /* Animation for the glowing pulsing effect */
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.4);
+            }
+            50% {
+                transform: scale(1.2);
+                box-shadow: 0 0 30px 10px rgba(255, 255, 255, 0.6);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.4);
+            }
+        }
+
+        /* Pulse effect for the emotion output text */
+        .pulseEffect {
+            animation: pulse 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>SoulSpeak</h1>
+
+    <!-- Input fields for Heart Rate, SpO2, Systolic BP, Diastolic BP -->
+    <label for="hr">Heart Rate (bpm):</label>
+    <input type="number" id="hr" placeholder="Enter heart rate" value="95">
+    
+    <label for="spo2">SpO2 (%):</label>
+    <input type="number" id="spo2" placeholder="Enter SpO2" value="96">
+    
+    <label for="systolicBP">Systolic BP (mmHg):</label>
+    <input type="number" id="systolicBP" placeholder="Enter systolic BP" value="130">
+    
+    <label for="diastolicBP">Diastolic BP (mmHg):</label>
+    <input type="number" id="diastolicBP" placeholder="Enter diastolic BP" value="88">
+
+    <!-- Button to calculate emotion -->
+    <button onclick="runEmotionDetection()">Detect Emotion</button>
+
+    <!-- Display the detected emotion -->
+    <h2>Detected Emotion: <span id="emotionOutput">None</span></h2>
+
+    <!-- Pulsing Ring (Invisible until emotion is detected) -->
+    <div id="pulseRing" class="pulseRing"></div>
+
+    <script>
+        // Define the refined emotional states with updated ranges based on scientific findings
+        const emotions = {
+            Calm: { hr: [60, 75], spo2: [97, 100], bp: { systolic: [110, 120], diastolic: [70, 80] }, color: '#3498db' }, // Blue
+            Anxious: { hr: [80, 100], spo2: [95, 97], bp: { systolic: [125, 135], diastolic: [85, 90] }, color: '#e67e22' }, // Orange
+            Stressed: { hr: [95, 110], spo2: [93, 95], bp: { systolic: [135, 145], diastolic: [90, 95] }, color: '#f39c12' }, // Yellow
+            Fear: { hr: [100, 120], spo2: [90, 93], bp: { systolic: [145, 160], diastolic: [95, 100] }, color: '#e74c3c' }, // Red
+            Anger: { hr: [110, 130], spo2: [92, 94], bp: { systolic: [150, 170], diastolic: [95, 105] }, color: '#c0392b' }, // Dark Red
+            Content: { hr: [70, 85], spo2: [98, 100], bp: { systolic: [115, 125], diastolic: [75, 85] }, color: '#2ecc71' }, // Green
+            Relaxed: { hr: [60, 70], spo2: [98, 100], bp: { systolic: [110, 115], diastolic: [70, 75] }, color: '#1abc9c' }, // Teal
+            Excited: { hr: [85, 110], spo2: [95, 98], bp: { systolic: [130, 140], diastolic: [85, 90] }, color: '#9b59b6' }  // Purple
+        };
+
+        // Function to check if the input values fall within the ranges for each emotion
+        function determineEmotion(hr, spo2, systolicBP, diastolicBP) {
+            let closestEmotion = null;
+            let smallestDistance = Infinity;
+
+            // Loop through the emotions to find the closest match based on the input values
+            for (let emotion in emotions) {
+                let e = emotions[emotion];
+
+                // Calculate the distance for HR, SpO2, and BP ranges
+                let hrDistance = Math.abs((hr - (e.hr[0] + e.hr[1]) / 2));
+                let spo2Distance = Math.abs((spo2 - (e.spo2[0] + e.spo2[1]) / 2));
+                let systolicDistance = Math.abs((systolicBP - (e.bp.systolic[0] + e.bp.systolic[1]) / 2));
+                let diastolicDistance = Math.abs((diastolicBP - (e.bp.diastolic[0] + e.bp.diastolic[1]) / 2));
+
+                let totalDistance = hrDistance + spo2Distance + systolicDistance + diastolicDistance;
+
+                // Track the smallest total distance (closest match)
+                if (totalDistance < smallestDistance) {
+                    closestEmotion = emotion;
+                    smallestDistance = totalDistance;
+                }
+            }
+
+            return closestEmotion;
+        }
+
+        // Function to run the emotion detection based on user inputs
+        function runEmotionDetection() {
+            let hr = parseInt(document.getElementById("hr").value);
+            let spo2 = parseInt(document.getElementById("spo2").value);
+            let systolicBP = parseInt(document.getElementById("systolicBP").value);
+            let diastolicBP = parseInt(document.getElementById("diastolicBP").value);
+
+            let emotion = determineEmotion(hr, spo2, systolicBP, diastolicBP);
+            document.getElementById("emotionOutput").innerText = emotion;
+
+            // Apply the color and pulsating effect based on detected emotion
+            if (emotion && emotions[emotion]) {
+                let color = emotions[emotion].color;
+                document.body.style.backgroundColor = '#1c1c1c'; // Dark background for dark mode
+                document.getElementById("emotionOutput").style.color = color;
+
+                let pulseRing = document.getElementById("pulseRing");
+                pulseRing.style.borderColor = color;
+                pulseRing.classList.add("pulseEffect");
+            }
+        }
+    </script>
+</body>
+</html>
